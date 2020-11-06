@@ -11,8 +11,7 @@ import (
 var (
 	DB          *gorm.DB
 	environment = os.Getenv("GO_ENV")
-	dbUser      = os.Getenv("DB_USER")
-	dbPass      = os.Getenv("DB_PASS")
+	dbURL       = os.Getenv("DATABASE_URL")
 )
 
 func Setup() {
@@ -24,8 +23,7 @@ func Setup() {
 			panic("gorm failed to connect to the sqlite database")
 		}
 	} else {
-		dsn := dbUser + ":" + dbPass + "@/dbname..."
-		DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		DB, err = gorm.Open(mysql.Open(dbURL), &gorm.Config{})
 		if err != nil {
 			panic("gorm failed to connect to the mysql database")
 		}
