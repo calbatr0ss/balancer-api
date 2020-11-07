@@ -32,7 +32,6 @@ func main() {
 
 	db.Setup()
 
-	// TODO needed?
 	db.DB.AutoMigrate(&models.Record{})
 
 	// Define routes
