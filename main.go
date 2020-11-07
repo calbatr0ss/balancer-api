@@ -9,15 +9,26 @@ import (
 	"os"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/cors"
 )
 
 var (
-	port = os.Getenv("PORT")
+	port     = os.Getenv("PORT")
+	uiOrigin = os.Getenv("BALANCER_UI_ORIGIN")
 )
 
 func main() {
 	// Define router
 	router := chi.NewRouter()
+	// Allow cors from frontend
+	router.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{uiOrigin},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	}))
 
 	db.Setup()
 
