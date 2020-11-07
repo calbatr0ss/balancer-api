@@ -41,6 +41,8 @@ func main() {
 		r.Post("/", handlers.CreateRecord)
 		r.Put("/{id}", handlers.UpdateRecord)
 		r.Delete("/{id}", handlers.DeleteRecord)
+		r.Get("/net", handlers.GetNetWorth)
+		r.Get("/sum", handlers.GetTypeSum)
 	})
 
 	// Start server
