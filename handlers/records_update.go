@@ -3,7 +3,6 @@ package handlers
 import (
 	"balancer-api/models"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -14,7 +13,6 @@ import (
 func (h *Handler) UpdateRecord(w http.ResponseWriter, r *http.Request) {
 	var newRecord models.Record
 	recordID := chi.URLParam(r, "id")
-	fmt.Println("here")
 
 	record, err := h.RecordService.GetRecord(recordID)
 	if err != nil {
@@ -28,17 +26,28 @@ func (h *Handler) UpdateRecord(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Println("here")
 
-	if newRecord.Name != "" {
-		record.Name = newRecord.Name
+	// Ensure name and type are included
+	if newRecord.Name == "" || newRecord.Type == "" {
+		http.Error(w, "name or type not included in request body", http.StatusBadRequest)
+		return
 	}
 
-	if newRecord.Type == Asset || newRecord.Type == Liability {
-		record.Type = strings.ToUpper(newRecord.Type)
+	// Ensure the type is valid
+	cleanType := strings.ToUpper(newRecord.Type)
+	if cleanType != Asset && cleanType != Liability {
+		log.Println("record type is invalid")
+		http.Error(w, "invalid type provided", http.StatusBadRequest)
+		return
 	}
 
-	err = h.RecordService.UpdateRecord(record)
+	// Set the cleaned type
+	newRecord.Type = cleanType
+
+	// Set new record with ID
+	newRecord.ID = record.ID
+
+	err = h.RecordService.UpdateRecord(&newRecord)
 	if err != nil {
 		http.Error(w, "Error reading entry from db", http.StatusInternalServerError)
 		return
