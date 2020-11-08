@@ -28,6 +28,10 @@ var _ = Describe("UpdateRecord handler", func() {
 	})
 
 	Context("when UpdateRecord is called", func() {
+		BeforeEach(func() {
+			req = httptest.NewRequest("PUT", "/records", nil)
+		})
+
 		Context("when a url param ID is not provided", func() {
 			It("returns status Bad Request", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
