@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"balancer-api/db"
+	"balancer-api/balancer"
 	"balancer-api/models"
 	"encoding/json"
 	"log"
@@ -25,10 +25,15 @@ type valuePayload struct {
 	Value float64 `json:"value"`
 }
 
-func GetAllRecords(w http.ResponseWriter, r *http.Request) {
-	var records []models.Record
+type Handler struct {
+	RecordService balancer.RecordService
+}
 
-	if result := db.DB.Find(&records); result.Error != nil {
+func (h *Handler) GetAllRecords(w http.ResponseWriter, r *http.Request) {
+	var records *[]models.Record
+
+	records, err := h.RecordService.GetAllRecords()
+	if err != nil {
 		http.Error(w, "Error reading entries in db", http.StatusInternalServerError)
 		return
 	}
@@ -38,7 +43,7 @@ func GetAllRecords(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(records)
 }
 
-func CreateRecord(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	var record models.Record
 
 	err := json.NewDecoder(r.Body).Decode(&record)
@@ -63,29 +68,29 @@ func CreateRecord(w http.ResponseWriter, r *http.Request) {
 	// Set the cleaned type
 	record.Type = cleanType
 
-	if result := db.DB.Create(&record); result.Error != nil {
-		http.Error(w, "Error creating entry in db", http.StatusInternalServerError)
+	rid, err := h.RecordService.CreateRecord(&record)
+	if err != nil {
+		http.Error(w, "Error reading entries in db", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	payload := idPayload{ID: record.ID}
+	payload := idPayload{ID: *rid}
 	json.NewEncoder(w).Encode(payload)
 }
 
-func UpdateRecord(w http.ResponseWriter, r *http.Request) {
-	var record models.Record
+func (h *Handler) UpdateRecord(w http.ResponseWriter, r *http.Request) {
 	var newRecord models.Record
 	recordID := chi.URLParam(r, "id")
 
-	if result := db.DB.Find(&record, recordID); result.Error != nil {
-		log.Println("Error reading entries from db")
-		http.Error(w, "Error reading entries from db", http.StatusInternalServerError)
+	record, err := h.RecordService.GetRecord(recordID)
+	if err != nil {
+		http.Error(w, "Error reading entry from db", http.StatusInternalServerError)
 		return
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&newRecord)
+	err = json.NewDecoder(r.Body).Decode(&newRecord)
 	if err != nil {
 		log.Println("Error decoding json")
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -102,28 +107,27 @@ func UpdateRecord(w http.ResponseWriter, r *http.Request) {
 
 	record.Balance = newRecord.Balance
 
-	if result := db.DB.Save(&record); result.Error != nil {
-		log.Println("Error updating entry in db")
-		http.Error(w, "Error updating entry in db", http.StatusInternalServerError)
+	err = h.RecordService.UpdateRecord(record)
+	if err != nil {
+		http.Error(w, "Error reading entry from db", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 }
 
-func DeleteRecord(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteRecord(w http.ResponseWriter, r *http.Request) {
 	recordID := chi.URLParam(r, "id")
-
-	if result := db.DB.Delete(&models.Record{}, recordID); result.Error != nil {
-		log.Println("Error deleting entry in db")
-		http.Error(w, "Error deleting entry in db", http.StatusInternalServerError)
-		return
-	}
 
 	rid, err := strconv.ParseUint(recordID, 10, 64)
 	if err != nil {
 		log.Println("Error parsing uint ID")
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.RecordService.DeleteRecord(rid); err != nil {
+		http.Error(w, "Error reading entries in db", http.StatusInternalServerError)
 		return
 	}
 
@@ -133,17 +137,17 @@ func DeleteRecord(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(payload)
 }
 
-func GetNetWorth(w http.ResponseWriter, r *http.Request) {
-	var records []models.Record
+func (h *Handler) GetNetWorth(w http.ResponseWriter, r *http.Request) {
+	var records *[]models.Record
 	var sum float64
 
-	if result := db.DB.Find(&records); result.Error != nil {
-		log.Println("Error reading entries in db")
+	records, err := h.RecordService.GetAllRecords()
+	if err != nil {
 		http.Error(w, "Error reading entries in db", http.StatusInternalServerError)
 		return
 	}
 
-	for _, r := range records {
+	for _, r := range *records {
 		sum += r.Balance
 	}
 
@@ -153,8 +157,8 @@ func GetNetWorth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(payload)
 }
 
-func GetTypeSum(w http.ResponseWriter, r *http.Request) {
-	var records []models.Record
+func (h *Handler) GetTypeSum(w http.ResponseWriter, r *http.Request) {
+	var records *[]models.Record
 	var sum float64
 
 	keys, ok := r.URL.Query()["type"]
@@ -173,13 +177,13 @@ func GetTypeSum(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if result := db.DB.Where("type = ?", typeKey).Find(&records); result.Error != nil {
-		log.Println("Error reading entries in db")
+	records, err := h.RecordService.GetRecordsByType(typeKey)
+	if err != nil {
 		http.Error(w, "Error reading entries in db", http.StatusInternalServerError)
 		return
 	}
 
-	for _, r := range records {
+	for _, r := range *records {
 		sum += r.Balance
 	}
 

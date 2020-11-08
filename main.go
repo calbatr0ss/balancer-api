@@ -1,20 +1,25 @@
 package main
 
 import (
-	"balancer-api/db"
 	"balancer-api/handlers"
 	"balancer-api/models"
+	"balancer-api/services"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 var (
-	port     = os.Getenv("PORT")
-	uiOrigin = os.Getenv("BALANCER_UI_ORIGIN")
+	environment = os.Getenv("GO_ENV")
+	port        = os.Getenv("PORT")
+	uiOrigin    = os.Getenv("BALANCER_UI_ORIGIN")
+	dbURL       = os.Getenv("DATABASE_URL")
 )
 
 func main() {
@@ -30,18 +35,39 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	db.Setup()
+	// db.Setup()
+	// Set up DB
+	var db *gorm.DB
+	var err error
+	if environment == "dev" {
+		db, err = gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+		if err != nil {
+			panic("gorm failed to connect to the sqlite database")
+		}
+	} else {
+		db, err = gorm.Open(mysql.Open(dbURL), &gorm.Config{})
+		if err != nil {
+			panic("gorm failed to connect to the mysql database")
+		}
+	}
 
-	db.DB.AutoMigrate(&models.Record{})
+	db.AutoMigrate(&models.Record{})
+
+	// Create services
+	rs := &services.RecordService{DB: db}
+	// rs := &services.RecordService{}
+
+	var h handlers.Handler
+	h.RecordService = rs
 
 	// Define routes
 	router.Route("/records", func(r chi.Router) {
-		r.Get("/", handlers.GetAllRecords)
-		r.Post("/", handlers.CreateRecord)
-		r.Put("/{id}", handlers.UpdateRecord)
-		r.Delete("/{id}", handlers.DeleteRecord)
-		r.Get("/net", handlers.GetNetWorth)
-		r.Get("/sum", handlers.GetTypeSum)
+		r.Get("/", h.GetAllRecords)
+		r.Post("/", h.CreateRecord)
+		r.Put("/{id}", h.UpdateRecord)
+		r.Delete("/{id}", h.DeleteRecord)
+		r.Get("/net", h.GetNetWorth)
+		r.Get("/sum", h.GetTypeSum)
 	})
 
 	// Start server
@@ -50,4 +76,5 @@ func main() {
 	}
 	log.Printf("Starting server on %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
+
 }

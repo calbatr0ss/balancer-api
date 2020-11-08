@@ -29,3 +29,13 @@ func Setup() {
 		}
 	}
 }
+
+// func GetAllRecords() (*[]models.Record, error) {
+// 	var records []models.Record
+//
+// 	if result := dbc.DB.Find(&records); result.Error != nil {
+// 		return nil, result.Error
+// 	}
+//
+// 	return &records, nil
+// }
