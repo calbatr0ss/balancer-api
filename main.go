@@ -35,7 +35,6 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// db.Setup()
 	// Set up DB
 	var db *gorm.DB
 	var err error
@@ -55,8 +54,8 @@ func main() {
 
 	// Create services
 	rs := &services.RecordService{DB: db}
-	// rs := &services.RecordService{}
 
+	// Attach services to handler
 	var h handlers.Handler
 	h.RecordService = rs
 
@@ -76,5 +75,4 @@ func main() {
 	}
 	log.Printf("Starting server on %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
-
 }
